@@ -18,6 +18,7 @@ export const createProduct = async (req, res) => {
       categoryId,
       discountPercent,
       isFeatured,
+      isPublished = true,
     } = req.body;
     // Validate required fields
     if (!name || !price || !categoryId) {
@@ -52,6 +53,7 @@ export const createProduct = async (req, res) => {
         isFeatured,
         discountPercent: parseFloat(discountPercent),
         sellerId: req.user.id,
+        isPublished,
       },
     });
     if (!product) {
