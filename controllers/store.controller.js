@@ -332,6 +332,7 @@ export const getFilterProducts = async (req, res) => {
       data: products,
       total: totalProducts,
       pages: Math.ceil(totalProducts / limit),
+      hasNextPage: page < Math.ceil(totalProducts / limit),
     });
   } catch (error) {
     console.error(error);
