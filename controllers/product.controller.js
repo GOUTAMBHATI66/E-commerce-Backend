@@ -78,7 +78,6 @@ export const createProduct = async (req, res) => {
 export const createVariant = async (req, res) => {
   try {
     const { variantData, productId } = req.body; // The array of variants and product ID
-    console.log(variantData);
 
     // Validate required fields for each variant
     for (const variant of variantData) {
@@ -225,7 +224,7 @@ export const getSpecificProduct = async (req, res) => {
 
     // Fetch the product with details
     const product = await prisma.product.findUnique({
-      where: { id },
+      where: { slug: id },
       include: {
         category: true,
         variants: {
@@ -339,9 +338,10 @@ export const updateVariant = async (req, res) => {
 
     // Check if the product exists
     const product = await prisma.product.findUnique({
-      where: { id: productId },
+      where: {
+        slug: productId,
+      },
     });
-
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -361,7 +361,7 @@ export const updateVariant = async (req, res) => {
       async (prisma) => {
         // Delete all existing variants and their attributes
         await prisma.variant.deleteMany({
-          where: { productId },
+          where: { productId: product.id },
         });
 
         // Create new variants with attributes
@@ -371,7 +371,7 @@ export const updateVariant = async (req, res) => {
           .reduce((acc, stock) => acc + stock, 0);
 
         await prisma.product.update({
-          where: { id: productId },
+          where: { id: product.id },
           data: {
             variants: {
               create: variantData.map((variant) => ({
