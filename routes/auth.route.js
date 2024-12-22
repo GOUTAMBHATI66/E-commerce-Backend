@@ -1,6 +1,5 @@
 import { Router } from "express";
 import passport from "passport";
-import { getSellerDetails, logout } from "../controllers/auth.controller.js";
 
 const router = Router();
 
@@ -16,6 +15,4 @@ router.get(
   })
 );
 
-router.get("/me", getSellerDetails);
-router.post("/logout", logout);
 export default router;
