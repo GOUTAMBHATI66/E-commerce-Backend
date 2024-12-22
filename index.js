@@ -9,6 +9,7 @@ import userRoutes from "./routes/user.route.js";
 import passport from "./config/passport.js";
 import cors from "cors";
 import MongoStore from "connect-mongo";
+import cookieparser from "cookie-parser";
 
 import { isSeller, isAuthenticated } from "./middlewares/authenticated.js";
 
@@ -17,10 +18,17 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(express.json({ limit: "50mb" })); // 50 MB limit for JSON requests
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+];
+
+app.use(cookieparser());
 // cors
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
