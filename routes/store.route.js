@@ -8,8 +8,10 @@ import {
   getFiltersList,
 } from "../controllers/store.controller.js";
 import {
+  deleteUserAddress,
   getCartProducts,
   getUserProfileDetails,
+  upsertUserAddress,
 } from "../controllers/user.controller.js";
 import { isAuthenticated } from "../middlewares/authenticated.js";
 
@@ -26,5 +28,11 @@ router.post("/cart", getCartProducts);
 
 // get the user profile details
 router.get("/profile/me", isAuthenticated, getUserProfileDetails);
+router.post("/profile/create/address", isAuthenticated, upsertUserAddress);
+router.delete(
+  "/profile/address/delete/:id",
+  isAuthenticated,
+  deleteUserAddress
+);
 
 export default router;

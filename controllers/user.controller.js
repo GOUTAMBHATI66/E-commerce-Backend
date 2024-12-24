@@ -68,7 +68,12 @@ export const getCartProducts = async (req, res) => {
 export const getUserProfileDetails = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        addresses: true,
+      },
+    });
 
     if (!user) {
       return res
@@ -80,11 +85,122 @@ export const getUserProfileDetails = async (req, res) => {
       id: user.id,
       name: user.name,
       email: user.email,
+      addresses: user.addresses,
+      orders: user.orders,
     });
   } catch (error) {
     console.log("Error in getting user", error.message);
     res
       .status(500)
       .json({ error: "Server Error " + error.message, success: false });
+  }
+};
+
+// create Addressexport
+export const upsertUserAddress = async (req, res) => {
+  try {
+    const { street, city, state, postalCode, country, phoneNumber, id } =
+      req.body;
+    const userId = req.user.id;
+    console.log(req.user, "data of the store user");
+
+    let address;
+    if (id) {
+      address = await prisma.address.findUnique({
+        where: { id },
+      });
+      if (address) {
+        address = await prisma.address.update({
+          where: { id },
+          data: {
+            street,
+            city,
+            state,
+            postalCode,
+            country,
+            phoneNumber,
+          },
+        });
+      }
+      return res.status(201).json({
+        message: "Address updated successfully",
+        success: true,
+        data: address,
+      });
+    } else {
+      if (
+        !street ||
+        !city ||
+        !state ||
+        !postalCode ||
+        !country ||
+        !phoneNumber
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "All address fields are required: street, city, state, postalCode, country, and phoneNumber.",
+        });
+      }
+      address = await prisma.address.create({
+        data: {
+          userId: userId,
+          street,
+          city,
+          state,
+          postalCode,
+          country,
+          phoneNumber,
+        },
+      });
+      return res.status(200).json({
+        success: true,
+        message: "User delivery address created successfully.",
+        data: address,
+      });
+    }
+  } catch (error) {
+    console.error("Error creating or updating user address:", error);
+    return res.status(500).json({
+      success: false,
+      message:
+        "An error occurred while creating or updating the user delivery address.",
+      error: error.message,
+    });
+  }
+};
+
+// delete a user address
+export const deleteUserAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Check if the product exists
+    const address = await prisma.address.findUnique({
+      where: { id: id },
+    });
+
+    if (!address) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found.",
+      });
+    }
+
+    await prisma.address.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Address deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Error deleting address", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete the  address. Please try again later.",
+    });
   }
 };
