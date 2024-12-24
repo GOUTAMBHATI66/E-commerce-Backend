@@ -1,5 +1,7 @@
 import prisma from "../prisma/prisma.js";
 
+// work for the store users
+
 export const getCartProducts = async (req, res) => {
   try {
     const { items } = req.body;
@@ -60,5 +62,29 @@ export const getCartProducts = async (req, res) => {
       message: "Error fetching the cart products.",
       success: false,
     });
+  }
+};
+
+export const getUserProfileDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
+
+    res.status(200).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    });
+  } catch (error) {
+    console.log("Error in getting user", error.message);
+    res
+      .status(500)
+      .json({ error: "Server Error " + error.message, success: false });
   }
 };
