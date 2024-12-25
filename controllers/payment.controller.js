@@ -9,10 +9,16 @@ const razorPayInstance = createRazorpayInstance();
 // creating order
 export const createOrder = async (req, res) => {
   try {
-    const { userId, items, paymentMethod } = req.body;
+    const { userId, items, paymentMethod, addressId } = req.body;
 
     // Validate input data
-    if (!userId || !items || items.length === 0 || !paymentMethod) {
+    if (
+      !userId ||
+      !items ||
+      items.length === 0 ||
+      !paymentMethod ||
+      !addressId
+    ) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid order data" });
@@ -26,30 +32,67 @@ export const createOrder = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // Fetch product details
-    const productIds = items.map((item) => item.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-    });
+    // Fetch product, variant, and attribute details
+    const products = await Promise.all(
+      items.map(async (item) => {
+        const product = await prisma.product.findUnique({
+          where: { id: item.productId },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            discountPercent: true,
+            variants: {
+              where: { id: item.variantId },
+              select: {
+                id: true,
+                color: true,
+                attributes: {
+                  where: { id: item.attributeId },
+                  select: {
+                    id: true,
+                    size: true,
+                    stock: true,
+                    price: true,
+                  },
+                },
+              },
+            },
+          },
+        });
 
-    if (products.length !== productIds.length) {
-      return res.status(400).json({
-        success: false,
-        message: "Some products are invalid or unavailable",
-      });
-    }
+        if (!product) {
+          throw new Error(`Product with ID ${item.productId} not found`);
+        }
 
+        const variant = product.variants[0];
+        if (!variant) {
+          throw new Error(`Variant with ID ${item.variantId} not found`);
+        }
+
+        const attribute = variant.attributes[0];
+        if (!attribute) {
+          throw new Error(`Attribute with ID ${item.attributeId} not found`);
+        }
+
+        if (attribute.stock < item.quantity) {
+          throw new Error(`Insufficient stock for attribute ${attribute.id}`);
+        }
+
+        return {
+          product,
+          variant,
+          attribute,
+        };
+      })
+    );
     // Calculate total amount
     let totalAmount = 0;
-    items.forEach((item) => {
-      const product = products.find((p) => p.id === item.productId);
-      if (!product) {
-        throw new Error(`Product with ID ${item.productId} not found`);
-      }
-      const itemPrice = product.discountPercent
-        ? product.discountPrice
-        : product.price;
-      totalAmount += itemPrice * item.quantity;
+    products.forEach(({ product, attribute }) => {
+      const itemPrice = attribute.price || product.price;
+      totalAmount +=
+        itemPrice *
+        items.find((item) => item.productId === product.id).quantity;
     });
 
     let razorpayOrderId = null;
@@ -71,47 +114,34 @@ export const createOrder = async (req, res) => {
 
       razorpayOrderId = razorpayOrder.id;
     }
+
+    // Create the order
     const createdOrder = await prisma.order.create({
       data: {
-        user: {
-          connect: { id: user.id },
-        },
+        userId,
         paymentMethod,
         razorpayOrderId,
         totalAmount,
         status: "PENDING",
         deliveryStatus: "PENDING",
-        shippingAddress: {
-          create: {
-            street: user.street,
-            city: user.city,
-            state: user.state,
-            postalCode: user.postalCode,
-            country: user.country,
-            phonenumber: user.phonenumber,
-            email: user.email,
-          },
+        shippingAddressId: addressId,
+        orderItems: {
+          create: items.map((item) => {
+            const { product, attribute } = products.find(
+              (p) => p.product.id === item.productId
+            );
+            return {
+              productId: product.id,
+              variantId: product.variants[0].id,
+              attributeId: attribute.id,
+              quantity: item.quantity,
+              price: attribute.price || product.price,
+            };
+          }),
         },
       },
     });
-    // Create order items
-    await Promise.all(
-      items.map(async (item) => {
-        const product = products.find((p) => p.id === item.productId);
-        await prisma.orderItem.create({
-          data: {
-            orderId: createdOrder.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            price: product.discountPercent
-              ? product.discountPrice
-              : product.price,
-          },
-        });
-      })
-    );
 
-    // Return success response with order details
     return res.status(201).json({
       success: true,
       message: "Order created successfully!",
@@ -146,9 +176,10 @@ export const verifyPayment = async (req, res) => {
         status: "CANCELLED",
       },
     });
+
     return res
       .status(400)
-      .json({ message: "Payment Successful", success: false });
+      .json({ message: "Payment Cancelled", success: false });
   }
 
   // apply the order
@@ -200,8 +231,7 @@ export const deleteOrder = async (req, res) => {
   }
 };
 
-// ----------------work in optional
-// web hook
+// ----------------work in optional web hook
 export const razorpayWebhookHandler = async (req, res) => {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 

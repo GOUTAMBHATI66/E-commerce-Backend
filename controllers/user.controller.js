@@ -72,6 +72,7 @@ export const getUserProfileDetails = async (req, res) => {
       where: { id: userId },
       include: {
         addresses: true,
+        orders: true,
       },
     });
 
