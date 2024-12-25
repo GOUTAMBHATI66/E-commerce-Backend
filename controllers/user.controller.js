@@ -65,6 +65,46 @@ export const getCartProducts = async (req, res) => {
   }
 };
 
+// get the orders details of the user
+
+export const getUserOrders = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        orders: {
+          include: {
+            orderItems: {
+              include: {
+                product: true,
+                attribute: true,
+                variant: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "Orders not found", success: false });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "order get successful",
+      data: user.orders,
+    });
+  } catch (error) {
+    console.log("Error in getting Orders", error.message);
+    res
+      .status(500)
+      .json({ error: "Server Error " + error.message, success: false });
+  }
+};
 export const getUserProfileDetails = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -72,7 +112,6 @@ export const getUserProfileDetails = async (req, res) => {
       where: { id: userId },
       include: {
         addresses: true,
-        orders: true,
       },
     });
 
@@ -87,7 +126,6 @@ export const getUserProfileDetails = async (req, res) => {
       name: user.name,
       email: user.email,
       addresses: user.addresses,
-      orders: user.orders,
     });
   } catch (error) {
     console.log("Error in getting user", error.message);
