@@ -14,6 +14,11 @@ import {
   upsertUserAddress,
 } from "../controllers/user.controller.js";
 import { isAuthenticated } from "../middlewares/authenticated.js";
+import {
+  createOrder,
+  deleteOrder,
+  verifyPayment,
+} from "../controllers/payment.controller.js";
 
 const router = Router();
 
@@ -34,5 +39,10 @@ router.delete(
   isAuthenticated,
   deleteUserAddress
 );
+// order routes with authenticated users
+router.post("/order/payment", isAuthenticated, createOrder);
+router.post("/order/payment/verify", isAuthenticated, verifyPayment);
+// ==============delete the order if payment fails
+router.delete("/order/payment/delete/:id", isAuthenticated, deleteOrder);
 
 export default router;
