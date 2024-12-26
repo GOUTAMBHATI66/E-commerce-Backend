@@ -34,7 +34,7 @@ router.post("/cart", getCartProducts);
 
 // get the user profile details
 router.get("/profile/me", isAuthenticated, getUserProfileDetails);
-router.get("/profile/orders", isAuthenticated, getUserOrders);
+router.get("/profile/orders/:id", isAuthenticated, getUserOrders);
 router.post("/profile/create/address", isAuthenticated, upsertUserAddress);
 router.delete(
   "/profile/address/delete/:id",

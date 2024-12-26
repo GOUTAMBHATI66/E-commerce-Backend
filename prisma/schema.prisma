@@ -153,18 +153,16 @@ model OrderItem {
 }
 
 model ShippingAddress {
-  id          String @id @default(auto()) @map("_id") @db.ObjectId
-  email       String
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   street      String
   city        String
   state       String
   postalCode  String
   country     String
   phoneNumber String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Order     Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Order       Order[]
 }
 
 // Enum for product status

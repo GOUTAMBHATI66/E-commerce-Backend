@@ -12,12 +12,13 @@ import MongoStore from "connect-mongo";
 import cookieparser from "cookie-parser";
 
 import { isSeller, isAuthenticated } from "./middlewares/authenticated.js";
+import { razorpayWebhookHandler } from "./controllers/payment.controller.js";
 
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(express.json({ limit: "50mb" })); // 50 MB limit for JSON requests
+app.use(express.json({ limit: "50mb" }));
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
@@ -66,6 +67,8 @@ app.use("/api/admin/user", isAuthenticated, userRoutes);
 app.use("/api/image", isAuthenticated, imagesRoutes);
 // store routes
 app.use("/api/store", storeRoutes);
+// razorpay verification routes for the webhook
+app.post("/verification", razorpayWebhookHandler);
 
 app.listen(PORT, () => {
   console.log("Backend is running on port " + PORT);

@@ -69,7 +69,7 @@ export const getCartProducts = async (req, res) => {
 
 export const getUserOrders = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const { id: userId } = req.params;
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -86,7 +86,6 @@ export const getUserOrders = async (req, res) => {
         },
       },
     });
-
     if (!user) {
       return res
         .status(404)

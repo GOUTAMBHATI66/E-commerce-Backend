@@ -31,6 +31,27 @@ export const createOrder = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+    const address = await prisma.address.findUnique({
+      where: { id: addressId },
+    });
+
+    if (!address || !address.city || !address.state || !address.country) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid address provided.",
+      });
+    }
+
+    const shippingAddress = await prisma.shippingAddress.create({
+      data: {
+        city: address.city,
+        street: address.street,
+        state: address.state,
+        country: address.country,
+        phoneNumber: address.phoneNumber,
+        postalCode: address.postalCode,
+      },
+    });
 
     // Fetch product, variant, and attribute details
     const products = await Promise.all(
@@ -118,13 +139,13 @@ export const createOrder = async (req, res) => {
     // Create the order
     const createdOrder = await prisma.order.create({
       data: {
-        userId,
+        userId: user.id,
         paymentMethod,
         razorpayOrderId,
         totalAmount,
         status: "PENDING",
         deliveryStatus: "PENDING",
-        shippingAddressId: addressId,
+        shippingAddressId: shippingAddress.id,
         orderItems: {
           create: items.map((item) => {
             const { product, attribute } = products.find(
