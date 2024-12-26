@@ -29,36 +29,66 @@ export const getSellerAllOrders = async (req, res) => {
     });
 
     // Fetch order items for the seller
-    const orderItems = await prisma.orderItem.findMany({
+    const orders = await prisma.orderItem.findMany({
       where: {
         product: {
           sellerId,
         },
       },
-      include: {
-        product: true,
+      select: {
+        id: true,
+        order: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            paymentMethod: true,
+            razorpayOrderId: true,
+            razorpayPaymentId: true,
+            status: true,
+            deliveryStatus: true,
+            totalAmount: true,
+            shippingAddress: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            sellerId: true,
+          },
+        },
+        variant: {
+          select: {
+            id: true,
+            color: true,
+          },
+        },
+        attribute: {
+          select: {
+            id: true,
+            size: true,
+            stock: true,
+          },
+        },
+        quantity: true,
+        price: true,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
       skip,
       take: pageSize,
     });
 
-    // Fetch order details for each order item
-    const orders = await Promise.all(
-      orderItems.map(async (item) => {
-        const orderData = await prisma.order.findUnique({
-          where: { id: item.orderId },
-          include: {
-            shippingAddress: true,
-            user: true,
-          },
-        });
-        return {
-          ...orderData,
-          orderItem: item,
-        };
-      })
-    );
-    console.log(orders);
     return res.status(200).json({
       success: true,
       message: "Seller orders fetched successfully",
