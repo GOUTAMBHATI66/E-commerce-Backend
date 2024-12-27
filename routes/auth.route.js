@@ -24,7 +24,8 @@
 
 import { Router } from "express";
 import passport from "passport";
-
+import dotenv from "dotenv";
+dotenv.config();
 const router = Router();
 
 // Seller login route
@@ -42,10 +43,20 @@ router.get(
 router.get(
   "/google/seller/callback",
   passport.authenticate("google-seller", {
-    failureRedirect: "/login", // Redirect to failure page
+    session: false,
   }),
   (req, res) => {
-    res.redirect("http://localhost:3000/admin"); // Redirect seller to admin panel
+    const token = req.user.token;
+    // res.cookie("admin", token, {
+    //   maxAge: 15 * 24 * 60 * 60 * 1000,
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "None",
+    // });
+    res.cookie("admin", token, {
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
+    res.redirect("http://localhost:3000");
   }
 );
 
@@ -64,10 +75,15 @@ router.get(
 router.get(
   "/google/user/callback",
   passport.authenticate("google-user", {
-    failureRedirect: "/login", // Redirect to failure page
+    session: false,
   }),
+
   (req, res) => {
-    res.redirect("http://localhost:3000/store"); // Redirect user to store
+    const token = req.user.token;
+    res.cookie("store", token, {
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
+    res.redirect("http://localhost:5173/profile");
   }
 );
 

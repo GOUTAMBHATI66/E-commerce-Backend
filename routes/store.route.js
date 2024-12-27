@@ -14,7 +14,7 @@ import {
   getUserProfileDetails,
   upsertUserAddress,
 } from "../controllers/user.controller.js";
-import { isAuthenticated } from "../middlewares/authenticated.js";
+import { isAuthenticatedStore } from "../middlewares/authenticated.js";
 import {
   createOrder,
   deleteOrder,
@@ -33,18 +33,18 @@ router.get("/filterlist", getFiltersList);
 router.post("/cart", getCartProducts);
 
 // get the user profile details
-router.get("/profile/me", isAuthenticated, getUserProfileDetails);
-router.get("/profile/orders/:id", isAuthenticated, getUserOrders);
-router.post("/profile/create/address", isAuthenticated, upsertUserAddress);
+router.get("/profile/me", isAuthenticatedStore, getUserProfileDetails);
+router.get("/profile/orders/:id", isAuthenticatedStore, getUserOrders);
+router.post("/profile/create/address", isAuthenticatedStore, upsertUserAddress);
 router.delete(
   "/profile/address/delete/:id",
-  isAuthenticated,
+  isAuthenticatedStore,
   deleteUserAddress
 );
 // order routes with authenticated users
-router.post("/order/payment", isAuthenticated, createOrder);
-router.post("/order/payment/verify", isAuthenticated, verifyPayment);
+router.post("/order/payment", isAuthenticatedStore, createOrder);
+router.post("/order/payment/verify", isAuthenticatedStore, verifyPayment);
 // ==============delete the order if payment fails
-router.delete("/order/payment/delete/:id", isAuthenticated, deleteOrder);
+router.delete("/order/payment/delete/:id", isAuthenticatedStore, deleteOrder);
 
 export default router;
