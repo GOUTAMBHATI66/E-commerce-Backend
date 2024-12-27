@@ -42,9 +42,7 @@ export const getSellerAllOrders = async (req, res) => {
             id: true,
             user: {
               select: {
-                id: true,
                 name: true,
-                email: true,
               },
             },
             paymentMethod: true,
@@ -56,27 +54,6 @@ export const getSellerAllOrders = async (req, res) => {
             shippingAddress: true,
             createdAt: true,
             updatedAt: true,
-          },
-        },
-        product: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            sellerId: true,
-          },
-        },
-        variant: {
-          select: {
-            id: true,
-            color: true,
-          },
-        },
-        attribute: {
-          select: {
-            id: true,
-            size: true,
-            stock: true,
           },
         },
         quantity: true,
@@ -126,7 +103,19 @@ export const getSellerParticularOrder = async (req, res) => {
               select: {
                 name: true,
                 category: true,
-                imageUrl: true,
+              },
+            },
+            variant: {
+              select: {
+                color: true,
+                images: true,
+              },
+            },
+            attribute: {
+              select: {
+                size: true,
+                stock: true,
+                price: true,
               },
             },
             quantity: true,
@@ -154,14 +143,15 @@ export const getSellerParticularOrder = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Order details found successfully",
+      message: "Particular Order details found successfully",
       data: order,
     });
   } catch (error) {
-    console.error("Error getting Order details: ", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Error getting Order details" });
+    console.error("Error getting particular Order details: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error getting particular Order details",
+    });
   }
 };
 
@@ -169,7 +159,6 @@ export const updateOrderDeliveryStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, paymentMethod } = req.body;
-
     const order = await prisma.order.findUnique({
       where: {
         id: id,
@@ -201,10 +190,11 @@ export const updateOrderDeliveryStatus = async (req, res) => {
 
     if (status === "DELIVERED") {
       for (const orderItem of order.orderItems) {
-        const { product, quantity } = orderItem;
-        await prisma.product.update({
+        const { variantId, quantity, attributeId } = orderItem;
+        const d = await prisma.attribute.update({
           where: {
-            id: product.id,
+            id: attributeId,
+            variantId: variantId,
           },
           data: {
             stock: {
