@@ -18,7 +18,7 @@ export const createProduct = async (req, res) => {
       categoryId,
       discountPercent,
       isFeatured,
-      isPublished = true,
+      isPublished = false,
     } = req.body;
     // Validate required fields
     if (!name || !price || !categoryId) {
@@ -338,6 +338,85 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+// export const updateVariant = async (req, res) => {
+//   try {
+//     const { variantData, productId } = req.body;
+//     if (!variantData || !productId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Product ID and variant data are required.",
+//       });
+//     }
+
+//     // Check if the product exists
+//     const product = await prisma.product.findUnique({
+//       where: {
+//         slug: productId,
+//       },
+//     });
+//     if (!product) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found.",
+//       });
+//     }
+//     // delete the product images from the cloudinary server
+//     for (let variants of variantData) {
+//       for (let imageToRemove of variants.images) {
+//         await cloudinary.uploader.destroy(
+//           imageToRemove.split("/").pop().split(".")[0]
+//         );
+//       }
+//     }
+//     // Start the update transaction
+//     await prisma.$transaction(
+//       async (prisma) => {
+//         // Delete all existing variants
+//         await prisma.variant.deleteMany({
+//           where: { productId: product.id },
+//         });
+//         // Create new variants with attributes
+//         const totalQuantity = variantData
+//           .map((variant) => variant.attributes.map((att) => att.stock))
+//           .flat()
+//           .reduce((acc, stock) => acc + stock, 0);
+
+//         await prisma.product.update({
+//           where: { id: product.id },
+//           data: {
+//             variants: {
+//               create: variantData.map((variant) => ({
+//                 color: variant.color,
+//                 images: { set: variant.images },
+//                 attributes: {
+//                   create: variant.attributes.map((attribute) => ({
+//                     size: attribute.size,
+//                     stock: attribute.stock,
+//                     price: attribute.price,
+//                   })),
+//                 },
+//               })),
+//             },
+//             totalQuantity,
+//           },
+//         });
+//       },
+//       { timeout: 15000 }
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Product variants and attributes updated successfully.",
+//     });
+//   } catch (error) {
+//     console.error("Error updating product variants:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update product variants. Please try again later.",
+//     });
+//   }
+// };
+
 export const updateVariant = async (req, res) => {
   try {
     const { variantData, productId } = req.body;
@@ -360,50 +439,66 @@ export const updateVariant = async (req, res) => {
         message: "Product not found.",
       });
     }
-    // delete the product images from the cloudinary server
-    for (let variants of variantData) {
-      for (let imageToRemove of variants.images) {
-        await cloudinary.uploader.destroy(
+
+    // Calculate the new total quantity
+    const totalQuantity = variantData
+      .flatMap((variant) => variant.attributes.map((att) => att.stock))
+      .reduce((acc, stock) => acc + stock, 0);
+
+    // Handle Cloudinary image deletion outside the transaction
+    const imageDeletions = variantData.flatMap((variant) =>
+      variant.images.map((imageToRemove) =>
+        cloudinary.uploader.destroy(
           imageToRemove.split("/").pop().split(".")[0]
-        );
-      }
-    }
+        )
+      )
+    );
+
+    // Perform the Cloudinary deletions first
+    await Promise.all(imageDeletions);
+
     // Start the update transaction
-    await prisma.$transaction(
-      async (prisma) => {
-        // Delete all existing variants and their attributes
-        await prisma.variant.deleteMany({
-          where: { productId: product.id },
-        });
-
-        // Create new variants with attributes
-        const totalQuantity = variantData
-          .map((variant) => variant.attributes.map((att) => att.stock))
-          .flat()
-          .reduce((acc, stock) => acc + stock, 0);
-
-        await prisma.product.update({
-          where: { id: product.id },
-          data: {
-            variants: {
-              create: variantData.map((variant) => ({
-                color: variant.color,
-                images: { set: variant.images },
-                attributes: {
-                  create: variant.attributes.map((attribute) => ({
-                    size: attribute.size,
-                    stock: attribute.stock,
-                    price: attribute.price,
-                  })),
-                },
-              })),
-            },
-            totalQuantity,
+    await prisma.$transaction(async (prisma) => {
+      for (const variant of variantData) {
+        // Update or create the variant
+        const updatedVariant = await prisma.variant.upsert({
+          where: { id: variant.id || -1 }, // Use an invalid ID if it's a new variant
+          update: {
+            color: variant.color,
+            images: { set: variant.images },
+          },
+          create: {
+            productId: product.id,
+            color: variant.color,
+            images: variant.images,
           },
         });
-      },
-      { timeout: 15000 }
-    );
+
+        for (const attribute of variant.attributes) {
+          // Update or create the attribute
+          await prisma.attribute.upsert({
+            where: { id: attribute.id || -1 }, // Use an invalid ID if it's a new attribute
+            update: {
+              size: attribute.size,
+              stock: attribute.stock,
+              price: attribute.price,
+            },
+            create: {
+              variantId: updatedVariant.id,
+              size: attribute.size,
+              stock: attribute.stock,
+              price: attribute.price,
+            },
+          });
+        }
+      }
+
+      // Update the total quantity of the product
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { totalQuantity },
+      });
+    });
 
     return res.status(200).json({
       success: true,
@@ -423,7 +518,7 @@ export const publishUnpublishProduct = async (req, res) => {
   try {
     // Check if the product exists
     const product = await prisma.product.findUnique({
-      where: { id: id },
+      where: { slug: id },
     });
 
     if (!product) {
@@ -435,7 +530,7 @@ export const publishUnpublishProduct = async (req, res) => {
 
     await prisma.product.update({
       where: {
-        id: id,
+        id: product.id,
       },
       data: {
         isPublished: product.isPublished ? false : true,
@@ -460,7 +555,7 @@ export const deleteProduct = async (req, res) => {
     const { id } = req.params;
     // Check if the product exists
     const product = await prisma.product.findUnique({
-      where: { id: id },
+      where: { slug: id },
     });
 
     if (!product) {
@@ -472,7 +567,7 @@ export const deleteProduct = async (req, res) => {
 
     await prisma.product.update({
       where: {
-        id: id,
+        slug: id,
       },
       data: {
         isDeleted: product.isDeleted ? false : true,

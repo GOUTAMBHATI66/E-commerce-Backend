@@ -190,18 +190,79 @@ export const updateOrderDeliveryStatus = async (req, res) => {
 
     if (status === "DELIVERED") {
       for (const orderItem of order.orderItems) {
-        const { variantId, quantity, attributeId } = orderItem;
-        const d = await prisma.attribute.update({
+        const { variantId, quantity, attributeId, productId } = orderItem;
+        // const d = await prisma.attribute.update({
+        //   where: {
+        //     id: attributeId,
+        //     variantId: variantId,
+        //   },
+        //   data: {
+        //     stock: {
+        //       decrement: Math.max(quantity, 0),
+        //     },
+        //   },
+        // });
+        // // also decrenmetn the  product quantity
+        // await prisma.product.update({
+        //   where: {
+        //     id: productId,
+        //   },
+        //   data: {
+        //     totalQuantity: {
+        //       decrement: Math.min(quantity, 0),
+        //     },
+        //   },
+        // });
+
+        const attribute = await prisma.attribute.findUnique({
           where: {
             id: attributeId,
-            variantId: variantId,
-          },
-          data: {
-            stock: {
-              decrement: quantity,
-            },
           },
         });
+
+        if (attribute.stock > 0) {
+          const decrementValue = Math.min(attribute.stock, quantity); // Only decrement up to the available stock
+
+          await prisma.attribute.update({
+            where: {
+              id: attributeId,
+              variantId: variantId,
+            },
+            data: {
+              stock: {
+                decrement: decrementValue,
+              },
+            },
+          });
+
+          const product = await prisma.product.findUnique({
+            where: {
+              id: productId,
+            },
+          });
+
+          if (product.totalQuantity > 0) {
+            const productDecrementValue = Math.min(
+              product.totalQuantity,
+              quantity
+            );
+
+            await prisma.product.update({
+              where: {
+                id: productId,
+              },
+              data: {
+                totalQuantity: {
+                  decrement: productDecrementValue,
+                },
+              },
+            });
+          }
+        } else {
+          console.log(
+            "Attribute stock is already zero; no decrement performed."
+          );
+        }
       }
       // update the payment method of the cash on delivery product to completed
       if (paymentMethod === "COD") {
