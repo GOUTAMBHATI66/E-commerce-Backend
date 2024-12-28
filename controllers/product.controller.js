@@ -77,8 +77,20 @@ export const createProduct = async (req, res) => {
 // create variants controller
 export const createVariant = async (req, res) => {
   try {
-    const { variantData, productId } = req.body; // The array of variants and product ID
+    const { variantData, productId: slug } = req.body; // The array of variants and product ID
 
+    const p = await prisma.product.findUnique({
+      where: {
+        slug: slug,
+      },
+    });
+    if (!p) {
+      return res.status(404).json({
+        message: "Product not found",
+        success: false,
+      });
+    }
+    const productId = p.id;
     // Validate required fields for each variant
     for (const variant of variantData) {
       const { color, images, attributes } = variant;
@@ -88,7 +100,7 @@ export const createVariant = async (req, res) => {
         !images ||
         !Array.isArray(attributes) ||
         attributes.length === 0 ||
-        !productId
+        !slug
       ) {
         return res.status(400).json({
           success: false,
