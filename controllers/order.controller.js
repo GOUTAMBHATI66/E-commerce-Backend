@@ -191,28 +191,6 @@ export const updateOrderDeliveryStatus = async (req, res) => {
     if (status === "DELIVERED") {
       for (const orderItem of order.orderItems) {
         const { variantId, quantity, attributeId, productId } = orderItem;
-        // const d = await prisma.attribute.update({
-        //   where: {
-        //     id: attributeId,
-        //     variantId: variantId,
-        //   },
-        //   data: {
-        //     stock: {
-        //       decrement: Math.max(quantity, 0),
-        //     },
-        //   },
-        // });
-        // // also decrenmetn the  product quantity
-        // await prisma.product.update({
-        //   where: {
-        //     id: productId,
-        //   },
-        //   data: {
-        //     totalQuantity: {
-        //       decrement: Math.min(quantity, 0),
-        //     },
-        //   },
-        // });
 
         const attribute = await prisma.attribute.findUnique({
           where: {
