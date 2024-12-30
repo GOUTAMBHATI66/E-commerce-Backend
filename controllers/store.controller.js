@@ -301,6 +301,7 @@ export const getFilterProducts = async (req, res) => {
                 size: true,
                 price: true,
                 stock: true,
+                id: true,
               },
             },
           },
