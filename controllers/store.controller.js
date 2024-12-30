@@ -1,5 +1,6 @@
 import prisma from "../prisma/prisma.js";
 
+// get p
 export const getProductDetails = async (req, res) => {
   try {
     const { id: slug } = req.params;
@@ -27,6 +28,7 @@ export const getProductDetails = async (req, res) => {
   }
 };
 
+// get the collectinks
 export const getCollections = async (req, res) => {
   try {
     const collections = [
@@ -120,6 +122,7 @@ export const getProductsByCategory = async (req, res) => {
   }
 };
 
+// get new arrivals products
 export const getNewArrivals = async (req, res) => {
   try {
     const products = await prisma.product.findMany({
@@ -162,6 +165,8 @@ export const getNewArrivals = async (req, res) => {
       .json({ success: false, message: "Failed to fetch new Arrivals." });
   }
 };
+
+// filter list to filter products
 export const getFiltersList = async (req, res) => {
   try {
     // Run both queries concurrently to optimize the response time.

@@ -5,7 +5,6 @@ import prisma from "../prisma/prisma.js";
 export const getCartProducts = async (req, res) => {
   try {
     const { items } = req.body;
-
     // Fetch only the required data
     const products = await Promise.all(
       items.map(async (item) => {
