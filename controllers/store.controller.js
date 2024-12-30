@@ -165,6 +165,50 @@ export const getNewArrivals = async (req, res) => {
       .json({ success: false, message: "Failed to fetch new Arrivals." });
   }
 };
+// get featured products
+export const getFeaturedProducts = async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        isDeleted: false,
+        isPublished: true,
+        isFeatured: true,
+      },
+      select: {
+        name: true,
+        id: true,
+        price: true,
+        slug: true,
+        discountPercent: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
+        variants: {
+          select: {
+            images: true,
+          },
+          take: 1,
+        },
+      },
+      take: 6,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+    res.status(200).json({
+      success: true,
+      message: "Fetch new feature products Successfully.",
+      data: products,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch featured products." });
+  }
+};
 
 // filter list to filter products
 export const getFiltersList = async (req, res) => {
