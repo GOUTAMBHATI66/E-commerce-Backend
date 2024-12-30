@@ -43,16 +43,6 @@ export const getCollections = async (req, res) => {
         id: crypto.randomUUID(),
         name: "New Arrivals",
         image: "https://images.unsplash.com/photo-1525507119028-ed4c629a60a3",
-        products: await prisma.product.findMany({
-          where: {
-            isDeleted: false,
-            isPublished: true,
-            createdAt: {
-              gte: new Date(new Date().setDate(new Date().getDate() - 30)),
-            },
-          },
-          take: 10,
-        }),
       },
       {
         id: crypto.randomUUID(),
