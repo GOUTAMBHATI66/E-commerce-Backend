@@ -22,6 +22,7 @@ import {
   getSellerParticularOrder,
   updateOrderDeliveryStatus,
 } from "../controllers/order.controller.js";
+import { getSellerDashboardData } from "../controllers/dashboard.controller.js";
 
 const router = Router();
 
@@ -30,6 +31,9 @@ router.get("/categories", getAllCategory);
 router.post("/category/create", createCategory);
 router.put("/category/update/:id", updateCategory);
 router.delete("/category/delete/:id", deleteCategory);
+// dashboard routes
+router.get("/dashboard", getSellerDashboardData);
+
 // products page routes
 router.get("/products", getSellerAllProducts);
 router.get("/product/:id", getSpecificProduct);

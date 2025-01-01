@@ -1,36 +1,72 @@
 import prisma from "../prisma/prisma.js";
 
-export const getDashboardData = async (req, res) => {
+export const getSellerDashboardData = async (req, res) => {
   try {
-    // Total products
-    const totalProducts = await prisma.product.count();
+    const sellerId = req.user.id; // Assuming seller's ID is available in req.user
 
-    // Total orders
-    const totalOrders = await prisma.order.count();
+    // Fetch total products created by the seller
+    const totalProducts = await prisma.product.count({
+      where: { sellerId },
+    });
 
-    // Total income earned (sum of totalAmount from all completed orders)
-    const totalIncome = await prisma.order.aggregate({
-      where: { status: "COMPLETED" },
-      _sum: {
-        totalAmount: true,
+    // Fetch total orders associated with the seller's products
+    const totalOrders = await prisma.orderItem.count({
+      where: {
+        product: { sellerId },
       },
     });
 
-    // Products-wise income chart (group by product)
+    // Fetch total income earned from completed orders
+    const totalIncome = await prisma.order.aggregate({
+      where: {
+        status: "COMPLETED",
+        orderItems: {
+          some: {
+            product: { sellerId },
+          },
+        },
+      },
+      _sum: { totalAmount: true },
+    });
+
+    // Fetch order statistics (pending, shipped, delivered)
+    const orderStats = await prisma.order.groupBy({
+      by: ["deliveryStatus"],
+      where: {
+        orderItems: {
+          some: {
+            product: { sellerId },
+          },
+        },
+      },
+      _count: { deliveryStatus: true },
+    });
+
+    // Fetch payment method distribution for the seller's orders
+    const paymentMethodStats = await prisma.order.groupBy({
+      by: ["paymentMethod"],
+      where: {
+        orderItems: {
+          some: {
+            product: { sellerId },
+          },
+        },
+      },
+      _count: { paymentMethod: true },
+    });
+
+    // Fetch income breakdown by product
     const productWiseIncome = await prisma.orderItem.groupBy({
       by: ["productId"],
-      _sum: {
-        price: true,
+      where: {
+        product: { sellerId },
       },
-      _count: {
-        productId: true,
-      },
-      orderBy: {
-        _sum: { price: "desc" },
-      },
+      _sum: { price: true },
+      _count: { productId: true },
+      orderBy: { _sum: { price: "desc" } },
     });
 
-    // Fetch product names for product-wise income chart
+    // Fetch product names for product-wise income
     const productDetails = await Promise.all(
       productWiseIncome.map(async (item) => {
         const product = await prisma.product.findUnique({
@@ -44,38 +80,31 @@ export const getDashboardData = async (req, res) => {
       })
     );
 
-    // Pie chart data: Payment methods distribution
-    const paymentMethodDistribution = await prisma.order.groupBy({
-      by: ["paymentMethod"],
-      _count: {
-        paymentMethod: true,
-      },
-    });
-
-    // Last 3 days pending orders or those not completed
-    const pendingOrders = await prisma.order.findMany({
+    // Fetch recent pending orders (last 7 days)
+    const recentPendingOrders = await prisma.order.findMany({
       where: {
-        deliveryStatus: {
-          not: "DELIVERED",
-        },
-        createdAt: {
-          gte: new Date(new Date() - 3 * 24 * 60 * 60 * 1000),
+        deliveryStatus: { not: "DELIVERED" },
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        orderItems: {
+          some: {
+            product: { sellerId },
+          },
         },
       },
       select: {
         id: true,
+        totalAmount: true,
         status: true,
         deliveryStatus: true,
         createdAt: true,
-        totalAmount: true,
         orderItems: {
           select: {
             quantity: true,
             product: {
               select: {
-                name: true,
                 id: true,
-                stock: true,
+                name: true,
+                totalQuantity: true,
               },
             },
           },
@@ -83,26 +112,21 @@ export const getDashboardData = async (req, res) => {
       },
     });
 
-    // Additional metrics (Optional): Total non-admin users
-    const totalUsers = await prisma.user.count({
-      where: { isAdmin: false },
-    });
-
-    // Response
+    // Prepare and send the response
     return res.status(200).json({
       success: true,
       data: {
         totalProducts,
         totalOrders,
         totalIncome: totalIncome._sum.totalAmount || 0,
+        orderStats,
+        paymentMethodStats,
         productWiseIncome: productDetails,
-        paymentMethodDistribution,
-        pendingOrders,
-        totalUsers,
+        recentPendingOrders,
       },
     });
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
+    console.error("Error fetching seller dashboard data:", error);
     return res
       .status(500)
       .json({ message: "Error getting dashboard data", success: false });
