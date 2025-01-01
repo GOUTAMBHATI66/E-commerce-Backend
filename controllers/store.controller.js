@@ -381,3 +381,46 @@ export const getFilterProducts = async (req, res) => {
       .json({ success: false, message: "Failed to fetch products." });
   }
 };
+
+// search product by category name and product name
+export const getSearchProduct = async (req, res) => {
+  try {
+    const { search } = req.query;
+    const products = await prisma.product.findMany({
+      where: {
+        OR: [
+          {
+            name: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+          {
+            category: {
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        category: true,
+        variants: {
+          take: 1,
+        },
+      },
+    });
+    res.status(200).json({
+      success: true,
+      message: "Products fetched successfully.",
+      data: products,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch products." });
+  }
+};

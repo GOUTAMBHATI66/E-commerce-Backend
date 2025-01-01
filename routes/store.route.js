@@ -7,6 +7,7 @@ import {
   getProductsByCategory,
   getFiltersList,
   getFeaturedProducts,
+  getSearchProduct,
 } from "../controllers/store.controller.js";
 import {
   deleteUserAddress,
@@ -31,6 +32,8 @@ router.get("/product/:id", getProductDetails);
 router.get("/newarrivals", getNewArrivals);
 router.get("/featuredproducts", getFeaturedProducts);
 router.get("/filterlist", getFiltersList);
+// search product
+router.get("/search", getSearchProduct);
 // get the details of user
 router.post("/cart", getCartProducts);
 
