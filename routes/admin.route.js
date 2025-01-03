@@ -17,6 +17,8 @@ import {
   deleteProduct,
   deleteProductPermanently,
 } from "../controllers/product.controller.js";
+import deliveryRoutes from "../routes/delivery.routes.js";
+import sellerRoutes from "../routes/seller.route.js";
 import {
   getSellerAllOrders,
   getSellerParticularOrder,
@@ -50,5 +52,10 @@ router.delete("/product/trash/delete/:id", deleteProductPermanently);
 router.get("/orders", getSellerAllOrders);
 router.get("/orders/:id", getSellerParticularOrder);
 router.put("/order/update/:id", updateOrderDeliveryStatus);
+
+// delivery routes with the separate files
+router.use("/delivery", deliveryRoutes);
+// separate seller routes
+router.use("/seller", sellerRoutes);
 
 export default router;

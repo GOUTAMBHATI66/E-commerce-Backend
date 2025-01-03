@@ -244,3 +244,26 @@ export const deleteUserAddress = async (req, res) => {
     });
   }
 };
+
+// logout user from the page
+export const userLogout = (req, res) => {
+  try {
+    res.clearCookie(
+      "store" //TODO: remoe the commend to make a secure cookie
+      // {
+      // httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      // sameSite: "None",
+      // }
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Error in logout:", error.message);
+    return res
+      .status(500)
+      .json({ success: false, message: "Server Error: " + error.message });
+  }
+};

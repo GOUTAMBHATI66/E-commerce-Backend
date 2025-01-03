@@ -98,6 +98,11 @@ export const getSellerParticularOrder = async (req, res) => {
         user: true,
         shippingAddress: true,
         orderItems: {
+          where: {
+            product: {
+              sellerId: req.user.id, // only show the order items related to the sellers in the order
+            },
+          },
           select: {
             product: {
               select: {

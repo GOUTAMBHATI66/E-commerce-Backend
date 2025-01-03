@@ -14,18 +14,32 @@ export const getSellerDetails = async (req, res) => {
     });
   } catch (error) {
     console.log("Error in getting seller", error.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Not authenticated seller " + error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Not authenticated seller " + error.message,
+    });
   }
 };
 
 export const logout = (req, res) => {
-  req.logout((err) => {
-    if (err) return res.status(500).json({ message: "Logout failed" });
-    res.redirect("/");
-  });
+  try {
+    console.log("sdjflsdjf");
+    res.clearCookie(
+      "admin"
+      // {
+      // httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      // sameSite: "None",
+      // }
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Error in logout:", error.message);
+    return res
+      .status(500)
+      .json({ success: false, message: "Server Error: " + error.message });
+  }
 };

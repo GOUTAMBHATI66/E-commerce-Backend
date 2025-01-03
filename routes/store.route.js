@@ -15,6 +15,7 @@ import {
   getUserOrders,
   getUserProfileDetails,
   upsertUserAddress,
+  userLogout,
 } from "../controllers/user.controller.js";
 import { isAuthenticatedStore } from "../middlewares/authenticated.js";
 import {
@@ -39,6 +40,7 @@ router.post("/cart", getCartProducts);
 
 // get the user profile details
 router.get("/profile/me", isAuthenticatedStore, getUserProfileDetails);
+router.post("/profile/logout", isAuthenticatedStore, userLogout);
 router.get("/profile/orders/:id", isAuthenticatedStore, getUserOrders);
 router.post("/profile/create/address", isAuthenticatedStore, upsertUserAddress);
 router.delete(
