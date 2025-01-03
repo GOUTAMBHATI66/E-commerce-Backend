@@ -1,13 +1,13 @@
 import { Router } from "express";
 import {
   getFilterProducts,
-  getCollections,
   getNewArrivals,
   getProductDetails,
   getProductsByCategory,
   getFiltersList,
   getFeaturedProducts,
   getSearchProduct,
+  getDiscountendProducts,
 } from "../controllers/store.controller.js";
 import {
   deleteUserAddress,
@@ -26,7 +26,7 @@ import {
 const router = Router();
 
 router.get("/products", getFilterProducts);
-router.get("/collections", getCollections);
+router.get("/discountedproducts", getDiscountendProducts);
 router.get("/category", getProductsByCategory);
 router.get("/product/:id", getProductDetails);
 router.get("/newarrivals", getNewArrivals);

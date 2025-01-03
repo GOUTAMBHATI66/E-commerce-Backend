@@ -1,6 +1,6 @@
 import prisma from "../prisma/prisma.js";
 
-// get p
+// get product details
 export const getProductDetails = async (req, res) => {
   try {
     const { id: slug } = req.params;
@@ -29,41 +29,46 @@ export const getProductDetails = async (req, res) => {
 };
 
 // get the collectinks
-export const getCollections = async (req, res) => {
+export const getDiscountendProducts = async (req, res) => {
   try {
-    const collections = [
-      {
-        id: crypto.randomUUID(),
-        name: "Featured Products",
-        image: "https://images.unsplash.com/photo-1523359346063-d879354c0ea5",
-        products: await prisma.product.findMany({
-          where: { isDeleted: false, isPublished: true, status: "active" },
-          take: 10,
-        }),
+    const products = await prisma.product.findMany({
+      where: {
+        isDeleted: false,
+        isPublished: true,
+        discountPercent: { not: null },
       },
-      {
-        id: crypto.randomUUID(),
-        name: "New Arrivals",
-        image: "https://images.unsplash.com/photo-1525507119028-ed4c629a60a3",
+      select: {
+        id: true,
+        name: true,
+        discountPercent: true,
+        price: true,
+        slug: true,
+        totalQuantity: true,
+        isFeatured: true,
+        variants: {
+          select: {
+            images: true,
+          },
+          take: 1,
+        },
       },
-      {
-        id: crypto.randomUUID(),
-        name: "Top Sellers",
-        image: "https://images.unsplash.com/photo-1483985988355-763728e1935b",
-        products: await prisma.product.findMany({
-          where: { isDeleted: false, isPublished: true },
-          orderBy: { totalQuantity: "desc" },
-          take: 10,
-        }),
+      orderBy: {
+        discountPercent: "desc",
       },
-    ];
+      take: 8,
+    });
 
-    res.status(200).json({ success: true, data: collections });
+    res.status(200).json({
+      success: true,
+      data: products,
+      message: "Discounted products fetch successfully",
+    });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch collections." });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch discounted products.",
+    });
   }
 };
 

@@ -57,7 +57,7 @@ export const createOrder = async (req, res) => {
     const products = await Promise.all(
       items.map(async (item) => {
         const product = await prisma.product.findUnique({
-          where: { id: item.productId },
+          where: { id: item.productId, isPublished: true, isDeleted: false },
           select: {
             id: true,
             name: true,
