@@ -110,6 +110,9 @@ export const getSellerDashboardData = async (req, res) => {
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
     // Prepare and send the response

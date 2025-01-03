@@ -357,13 +357,15 @@ export const getFilterProducts = async (req, res) => {
       const matchingVariant = product.variants.find(
         (variant) => variant.color === color
       );
-
-      // Get the image from the first matching variant, you may adjust this to better match your database structure
-      const image = matchingVariant ? matchingVariant.images[0] : null; // Assuming images is an array
-
+      const v = matchingVariant
+        ? [
+            matchingVariant,
+            ...product.variants.filter((i) => i.id !== matchingVariant.id),
+          ]
+        : product.variants;
       return {
         ...product,
-        variants: image,
+        variants: v,
       };
     });
 
@@ -374,7 +376,7 @@ export const getFilterProducts = async (req, res) => {
     // Return the response with products, pagination, and total count
     res.status(200).json({
       success: true,
-      data: products,
+      data: modifiedProducts,
       total: totalProducts,
       pages: Math.ceil(totalProducts / limit),
       hasNextPage: page < Math.ceil(totalProducts / limit),
