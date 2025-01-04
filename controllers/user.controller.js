@@ -66,19 +66,93 @@ export const getCartProducts = async (req, res) => {
 
 // get the orders details of the user
 
+// export const getUserOrders = async (req, res) => {
+//   try {
+//     const user = await prisma.user.findUnique({
+//       where: { id: req.user.id },
+//       include: {
+//         orders: {
+//           include: {
+//             SubOrder: {
+//               include: {
+//                 product: true,
+//                 attribute: true,
+//                 variant: true,
+//               },
+//             },
+//           },
+//           orderBy: {
+//             createdAt: "desc",
+//           },
+//         },
+//       },
+//     });
+//     if (!user) {
+//       return res
+//         .status(404)
+//         .json({ message: "Orders not found", success: false });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "order get successful",
+//       data: user.orders,
+//     });
+//   } catch (error) {
+//     console.log("Error in getting Orders", error.message);
+//     res
+//       .status(500)
+//       .json({ error: "Server Error " + error.message, success: false });
+//   }
+// };
+
 export const getUserOrders = async (req, res) => {
   try {
-    const { id: userId } = req.params;
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
+      where: { id: req.user.id },
+      select: {
         orders: {
-          include: {
-            orderItems: {
-              include: {
-                product: true,
-                attribute: true,
-                variant: true,
+          select: {
+            id: true,
+            deliveryStatus: true,
+            paymentMethod: true,
+            razorpayOrderId: true,
+            totalAmount: true,
+            status: true,
+            razorpayPaymentId: true,
+            createdAt: true,
+            SubOrder: {
+              select: {
+                id: true,
+                orderItems: {
+                  select: {
+                    id: true,
+                    price: true,
+                    quantity: true,
+                    product: {
+                      select: {
+                        name: true,
+                        price: true,
+                        discountPercent: true,
+                      },
+                    },
+                    variant: {
+                      select: {
+                        id: true,
+                        color: true,
+                        images: true,
+                      },
+                    },
+                    attribute: {
+                      select: {
+                        id: true,
+                        size: true,
+                        stock: true,
+                        price: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -88,6 +162,7 @@ export const getUserOrders = async (req, res) => {
         },
       },
     });
+
     if (!user) {
       return res
         .status(404)
@@ -96,7 +171,7 @@ export const getUserOrders = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "order get successful",
+      message: "Orders retrieved successfully",
       data: user.orders,
     });
   } catch (error) {
@@ -106,6 +181,7 @@ export const getUserOrders = async (req, res) => {
       .json({ error: "Server Error " + error.message, success: false });
   }
 };
+
 export const getUserProfileDetails = async (req, res) => {
   try {
     const userId = req.user.id;

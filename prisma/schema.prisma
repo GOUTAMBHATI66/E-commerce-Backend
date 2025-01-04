@@ -27,6 +27,7 @@ model Seller {
   shiprocketPassword String?
   products           Product[]
   Delivery           Delivery[]
+  SubOrder           SubOrder[]
 }
 
 model Product {
@@ -117,6 +118,8 @@ model Address {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Order {
@@ -127,33 +130,53 @@ model Order {
   paymentMethod     PaymentMethod  @default(COD)
   razorpayOrderId   String?
   razorpayPaymentId String?
-  status            OrderStatus    @default(PENDING)
+  status            PaymentStatus  @default(PENDING)
   totalAmount       Float
-  orderItems        OrderItem[]
+  // orderItems        OrderItem[]
   deliveryStatus    DeliveryStatus @default(PENDING)
 
   shippingAddressId String          @db.ObjectId
   shippingAddress   ShippingAddress @relation(fields: [shippingAddressId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  SubOrder  SubOrder[]
+}
+
+model SubOrder {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  parentOrderId  String         @db.ObjectId
+  parentOrder    Order          @relation(fields: [parentOrderId], references: [id], onDelete: Cascade)
+  sellerId       String         @db.ObjectId
+  seller         Seller         @relation(fields: [sellerId], references: [id])
+  orderItems     OrderItem[]
+  totalAmount    Float
+  paymentMethod  PaymentMethod  @default(ONLINE) // Payment status specific to the suborder
+  deliveryStatus DeliveryStatus @default(PENDING) // Delivery status specific to the suborder
+  paymentStatus  PaymentStatus  @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([parentOrderId])
 }
 
 model OrderItem {
   id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  orderId     String     @db.ObjectId
-  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId   String     @db.ObjectId
   product     Product    @relation(fields: [productId], references: [id])
-  variantId   String     @db.ObjectId
-  variant     Variant    @relation(fields: [variantId], references: [id])
-  attributeId String     @db.ObjectId
-  attribute   Attribute  @relation(fields: [attributeId], references: [id])
+  variantId   String?    @db.ObjectId
+  variant     Variant?   @relation(fields: [variantId], references: [id])
+  attributeId String?    @db.ObjectId
+  attribute   Attribute? @relation(fields: [attributeId], references: [id])
   quantity    Int        @default(1)
   price       Float
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   Delivery    Delivery[]
+  subOrderId  String     @db.ObjectId
+  SubOrder    SubOrder   @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
+
+  @@index([subOrderId])
 }
 
 model ShippingAddress {
@@ -178,12 +201,12 @@ model Delivery {
   sellerId String @db.ObjectId
   seller   Seller @relation(fields: [sellerId], references: [id])
 
-  deliveryService String
-  trackingId      String?
-  deliveryStatus  DeliveryStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  deliveryService   String
+  trackingId        String?
+  deliveryStatus    DeliveryStatus @default(PENDING)
+  estimatedDelivery DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }
 
 // Enum for product status
@@ -199,11 +222,10 @@ enum PaymentMethod {
   ONLINE
 }
 
-enum OrderStatus {
+enum PaymentStatus {
   PENDING
-  PROCESSING
   COMPLETED
-  CANCELLED
+  FAILED
 }
 
 enum DeliveryStatus {

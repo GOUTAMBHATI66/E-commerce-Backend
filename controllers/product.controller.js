@@ -462,7 +462,7 @@ export const updateVariant = async (req, res) => {
       for (const variant of variantData) {
         // Update or create the variant
         const updatedVariant = await prisma.variant.upsert({
-          where: { id: variant.id || -1 }, // Use an invalid ID if it's a new variant
+          where: { id: variant.id || " 677998e93fc53ba7451bbd15" }, // Use an invalid ID if it's a new variant
           update: {
             color: variant.color,
             images: { set: variant.images },
@@ -477,7 +477,7 @@ export const updateVariant = async (req, res) => {
         for (const attribute of variant.attributes) {
           // Update or create the attribute
           await prisma.attribute.upsert({
-            where: { id: attribute.id || -1 }, // Use an invalid ID if it's a new attribute
+            where: { id: attribute.id || "677998e93fc53ba7451bbd15" }, // Use an invalid ID if it's a new attribute
             update: {
               size: attribute.size,
               stock: attribute.stock,

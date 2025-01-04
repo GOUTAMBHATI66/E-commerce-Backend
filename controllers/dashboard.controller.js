@@ -17,40 +17,28 @@ export const getSellerDashboardData = async (req, res) => {
     });
 
     // Fetch total income earned from completed orders
-    const totalIncome = await prisma.order.aggregate({
+    const totalIncome = await prisma.subOrder.aggregate({
       where: {
-        status: "COMPLETED",
-        orderItems: {
-          some: {
-            product: { sellerId },
-          },
-        },
+        sellerId,
+        paymentStatus: "COMPLETED",
       },
       _sum: { totalAmount: true },
     });
 
     // Fetch order statistics (pending, shipped, delivered)
-    const orderStats = await prisma.order.groupBy({
+    const orderStats = await prisma.subOrder.groupBy({
       by: ["deliveryStatus"],
       where: {
-        orderItems: {
-          some: {
-            product: { sellerId },
-          },
-        },
+        sellerId,
       },
       _count: { deliveryStatus: true },
     });
 
     // Fetch payment method distribution for the seller's orders
-    const paymentMethodStats = await prisma.order.groupBy({
+    const paymentMethodStats = await prisma.subOrder.groupBy({
       by: ["paymentMethod"],
       where: {
-        orderItems: {
-          some: {
-            product: { sellerId },
-          },
-        },
+        sellerId,
       },
       _count: { paymentMethod: true },
     });
@@ -80,21 +68,17 @@ export const getSellerDashboardData = async (req, res) => {
       })
     );
 
-    // Fetch recent pending orders (last 7 days)
-    const recentPendingOrders = await prisma.order.findMany({
+    // Fetch recent pending suborders (last 7 days)
+    const recentPendingOrders = await prisma.subOrder.findMany({
       where: {
         deliveryStatus: { not: "DELIVERED" },
         createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-        orderItems: {
-          some: {
-            product: { sellerId },
-          },
-        },
+        sellerId,
       },
       select: {
         id: true,
         totalAmount: true,
-        status: true,
+        paymentStatus: true,
         deliveryStatus: true,
         createdAt: true,
         orderItems: {
