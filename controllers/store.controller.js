@@ -37,25 +37,17 @@ export const getDiscountendProducts = async (req, res) => {
         isPublished: true,
         discountPercent: { not: null },
       },
-      select: {
-        id: true,
-        name: true,
-        discountPercent: true,
-        price: true,
-        slug: true,
-        totalQuantity: true,
-        isFeatured: true,
+      include: {
         variants: {
-          select: {
-            images: true,
+          include: {
+            attributes: true,
           },
-          take: 1,
         },
       },
       orderBy: {
         discountPercent: "desc",
       },
-      take: 8,
+      take: 4,
     });
 
     res.status(200).json({

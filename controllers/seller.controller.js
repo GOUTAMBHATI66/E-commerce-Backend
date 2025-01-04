@@ -1,3 +1,4 @@
+import axios from "axios";
 import prisma from "../prisma/prisma.js";
 
 export const getSellerDetails = async (req, res) => {
@@ -19,28 +20,65 @@ export const getSellerDetails = async (req, res) => {
 
 export const registerSeller = async (req, res) => {
   try {
-    console.log(req.body);
+    console.log("Received request body:", req.body);
+
+    const { shiprocketEmail, shiprocketPassword } = req.body;
+    if (!shiprocketEmail || !shiprocketPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Shiprocket email and password are required",
+      });
+    }
+
+    const { data: tokenData } = await axios.post(
+      "https://apiv2.shiprocket.in/v1/external/auth/login",
+      {
+        email: shiprocketEmail,
+        password: shiprocketPassword,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    console.log("Shiprocket API Response:", tokenData);
+
+    if (!tokenData || !tokenData.token) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid Shiprocket credentials",
+      });
+    }
+
     const seller = await prisma.seller.update({
-      where: {
-        id: req.user.id,
-      },
-      data: {
-        ...req.body,
-      },
+      where: { id: req.user.id },
+      data: { ...req.body },
     });
-    console.log("updateed seller", seller);
+
     return res.status(200).json({
       success: true,
       message: "Seller registered successfully",
       data: seller,
     });
   } catch (error) {
+    console.error("Error in registerSeller:", error.message);
+
+    if (error.response && error.response.status === 401) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Invalid Shiprocket credentials",
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      message: "Server Error: Error in registering seller ",
+      message: "Server Error: Error in registering seller",
+      error: error.message,
     });
   }
 };
+
 export const logout = (req, res) => {
   try {
     res.clearCookie(
