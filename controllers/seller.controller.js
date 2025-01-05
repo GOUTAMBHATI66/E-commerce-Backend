@@ -20,8 +20,6 @@ export const getSellerDetails = async (req, res) => {
 
 export const registerSeller = async (req, res) => {
   try {
-    console.log("Received request body:", req.body);
-
     const { shiprocketEmail, shiprocketPassword } = req.body;
     if (!shiprocketEmail || !shiprocketPassword) {
       return res.status(400).json({
@@ -42,7 +40,6 @@ export const registerSeller = async (req, res) => {
         },
       }
     );
-    console.log("Shiprocket API Response:", tokenData);
 
     if (!tokenData || !tokenData.token) {
       return res.status(404).json({
@@ -53,9 +50,8 @@ export const registerSeller = async (req, res) => {
 
     const seller = await prisma.seller.update({
       where: { id: req.user.id },
-      data: { ...req.body },
+      data: { ...req.body, shipRocketToken: tokenData.token },
     });
-
     return res.status(200).json({
       success: true,
       message: "Seller registered successfully",

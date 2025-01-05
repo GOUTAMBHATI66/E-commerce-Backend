@@ -110,11 +110,23 @@ export const createOrder = async (req, res) => {
     );
     // Calculate total amount
     let totalAmount = 0;
+    // products.forEach(({ product, attribute }) => {
+    //   const itemPrice = attribute.price || product.price;
+    //   totalAmount +=
+    //     itemPrice *
+    //     items.find((item) => item.productId === product.id).quantity;
+    // });
     products.forEach(({ product, attribute }) => {
-      const itemPrice = attribute.price || product.price;
-      totalAmount +=
-        itemPrice *
-        items.find((item) => item.productId === product.id).quantity;
+      const quantity = items.find(
+        (item) => item.productId === product.id
+      ).quantity;
+      const basePrice = attribute.price || product.price;
+      const discount = product.discountPercent
+        ? (product.discountPercent / 100) * basePrice
+        : 0;
+
+      const finalPrice = basePrice - discount;
+      totalAmount += finalPrice * quantity;
     });
 
     let razorpayOrderId = null;
@@ -178,10 +190,14 @@ export const createOrder = async (req, res) => {
                   attribute,
                   quantity: item.quantity,
                 });
+                const basePrice = attribute.price || product.price;
+                const discount = product.discountPercent
+                  ? (product.discountPercent / 100) * basePrice
+                  : 0;
 
-                acc[product.sellerId].totalAmount +=
-                  (attribute.price || product.price) * item.quantity;
-                console.log("valuf of the account", acc);
+                const finalPrice = basePrice - discount;
+                acc[product.sellerId].totalAmount += finalPrice * item.quantity;
+                // console.log("valuf of the account", acc);
                 return acc;
               }, {})
             ).map(
@@ -197,13 +213,21 @@ export const createOrder = async (req, res) => {
                   deliveryStatus: "PENDING",
                   paymentStatus: "PENDING",
                   orderItems: {
-                    create: items.map(({ product, attribute, quantity }) => ({
-                      productId: product.id,
-                      variantId: product.variants[0].id,
-                      attributeId: attribute.id,
-                      quantity,
-                      price: attribute.price || product.price,
-                    })),
+                    create: items.map(({ product, attribute, quantity }) => {
+                      const basePrice = attribute.price || product.price;
+                      const discount = product.discountPercent
+                        ? (product.discountPercent / 100) * basePrice
+                        : 0;
+
+                      const finalPrice = basePrice - discount;
+                      return {
+                        productId: product.id,
+                        variantId: product.variants[0].id,
+                        attributeId: attribute.id,
+                        quantity,
+                        price: finalPrice,
+                      };
+                    }),
                   },
                 };
               }

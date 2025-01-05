@@ -25,6 +25,7 @@ model Seller {
   googleId           String     @unique
   shiprocketEmail    String?
   shiprocketPassword String?
+  shipRocketToken    String?
   products           Product[]
   Delivery           Delivery[]
   SubOrder           SubOrder[]

@@ -1,237 +1,209 @@
-// import axios from "axios";
-// import prisma from "../prisma/prisma.js";
-
-// export const createDelivery = async (req, res) => {
-//   const { orderId } = req.params;
-//   const { pickupLocation, packetDimensions } = req.body;
-
-//   try {
-//     const seller = await prisma.seller.findUnique({
-//       where: { id: req.user.id },
-//     });
-
-//     if (!seller) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Seller not found" });
-//     }
-
-//     const order = await prisma.order.findUnique({
-//       where: { id: orderId },
-//       include: {
-//         orderItems: {
-//           where: {
-//             product: {
-//               sellerId: req.user.id,
-//             },
-//           },
-//           include: {
-//             product: true,
-//           },
-//         },
-//         shippingAddress: true,
-//       },
-//     });
-
-//     if (!order || !order.orderItems.length) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Order or items not found" });
-//     }
-
-//     const shipmentRequest = {
-//       order_id: order.id,
-//       order_date: new Date().toISOString(),
-//       pickup_location: pickupLocation || seller.pickupLocation || seller.name, // Use provided pickup location or default
-//       billing_customer_name: order.shippingAddress.name,
-//       billing_customer_phone: order.shippingAddress.phoneNumber,
-//       billing_address: order.shippingAddress.street,
-//       billing_city: order.shippingAddress.city,
-//       billing_pincode: order.shippingAddress.postalCode,
-//       billing_state: order.shippingAddress.state,
-//       billing_country: order.shippingAddress.country,
-//       shipping_is_billing: true,
-//       order_items: order.orderItems.map((item) => ({
-//         name: item.product.name,
-//         sku: item.product.slug,
-//         units: item.quantity,
-//         selling_price: item.price,
-//       })),
-//       payment_method: order.paymentMethod === "COD" ? "COD" : "Prepaid",
-//       length: packetDimensions.length,
-//       breadth: packetDimensions.breadth,
-//       height: packetDimensions.height,
-//       weight: packetDimensions.weight,
-//     };
-
-//     // Call Shiprocket API to create delivery
-//     const { data: shipmentData } = await axios.post(
-//       "https://apiv2.shiprocket.in/v1/external/orders/create/adhoc",
-//       shipmentRequest,
-//       {
-//         headers: { Authorization: `Bearer ${seller.authToken}` },
-//       }
-//     );
-
-//     if (!shipmentData) {
-//       throw new Error("Failed to create delivery with Shiprocket.");
-//     }
-
-//     // Save delivery details in database
-//     await prisma.delivery.create({
-//       data: {
-//         orderId: order.id,
-//         sellerId: seller.id,
-//         deliveryService: "Shiprocket",
-//         trackingId: shipmentData.tracking_id,
-//         deliveryStatus: "SHIPPED",
-//         pickupLocation,
-//         packetDimensions: JSON.stringify(packetDimensions), // Save dimensions for record
-//       },
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Delivery created successfully.",
-//       trackingId: shipmentData.tracking_id,
-//     });
-//   } catch (error) {
-//     console.error(error.message);
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// };
-
 import axios from "axios";
 import prisma from "../prisma/prisma.js";
 
 export const createDelivery = async (req, res) => {
-  const { orderId } = req.params;
+  const { id: subOrderId } = req.params;
   const { pickupLocation, packetDimensions } = req.body;
 
   try {
+    // 1. Authenticate Seller
     const seller = await prisma.seller.findUnique({
       where: { id: req.user.id },
     });
-
-    if (!seller) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Seller not found" });
+    if (!seller || !seller.shipRocketToken) {
+      return res.status(404).json({
+        success: false,
+        message: "Seller not found or seller is not authenticate to shipRocket",
+      });
     }
+    // const { data: tokenData } = await axios.post(
+    //   "https://apiv2.shiprocket.in/v1/external/auth/login",
+    //   {
+    //     email: seller.shiprocketEmail,
+    //     password: seller.shiprocketPassword,
+    //   },
+    //   {
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //   }
+    // );
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    // if (!seller) {
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "Seller not found" });
+    // }
+
+    // if (!tokenData) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "Shiprocket authorization data is invalid",
+    //   });
+    // }
+
+    // 2. Fetch SubOrder and Related Data
+    const subOrder = await prisma.subOrder.findUnique({
+      where: { id: subOrderId },
       include: {
-        orderItems: {
-          where: {
-            product: {
-              sellerId: req.user.id,
-            },
+        parentOrder: {
+          include: {
+            shippingAddress: true,
+            user: true,
           },
-          include: { product: true },
         },
-        shippingAddress: true,
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
 
-    if (!order || !order.orderItems.length) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order or items not found" });
-    }
-
-    // 1. Check Courier Service Availability
-    const availabilityCheck = await axios.post(
-      "https://apiv2.shiprocket.in/v1/external/courier/serviceability",
-      {
-        pickup_postcode: seller.pickupPincode,
-        delivery_postcode: order.shippingAddress.postalCode,
-        weight: packetDimensions.weight,
-      },
-      {
-        headers: { Authorization: `Bearer ${seller.authToken}` },
-      }
-    );
-
-    if (!availabilityCheck.data.available) {
-      return res.status(400).json({
+    if (!subOrder || subOrder.sellerId !== seller.id) {
+      return res.status(404).json({
         success: false,
-        message: "No courier service available for the provided address.",
+        message: "SubOrder not found or access denied",
       });
     }
 
-    // 2. Create Delivery
+    if (!subOrder.orderItems.length) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No order items in SubOrder" });
+    }
+
+    const shippingAddress = subOrder.parentOrder.shippingAddress;
     const shipmentRequest = {
-      order_id: order.id,
+      order_id: subOrder.id,
       order_date: new Date().toISOString(),
-      pickup_location: pickupLocation || seller.pickupLocation || seller.name,
-      billing_customer_name: order.shippingAddress.name,
-      billing_customer_phone: order.shippingAddress.phoneNumber,
-      billing_address: order.shippingAddress.street,
-      billing_city: order.shippingAddress.city,
-      billing_pincode: order.shippingAddress.postalCode,
-      billing_state: order.shippingAddress.state,
-      billing_country: order.shippingAddress.country,
+      pickup_location: pickupLocation || "Primary",
+      billing_address: shippingAddress.street,
+      billing_customer_name: subOrder.parentOrder.user.name, // TODO:later update name for the shipping user.
+      billing_last_name: subOrder.parentOrder.user.name,
+      billing_city: shippingAddress.city,
+      billing_pincode: parseInt(shippingAddress.postalCode), // Ensure numeric postal code
+      billing_email: subOrder.parentOrder.user.email,
+      billing_phone: shippingAddress.phoneNumber.slice(2),
+      billing_state: shippingAddress.state,
+      billing_country: shippingAddress.country,
       shipping_is_billing: true,
-      order_items: order.orderItems.map((item) => ({
+      order_items: subOrder.orderItems.map((item) => ({
         name: item.product.name,
         sku: item.product.slug,
         units: item.quantity,
         selling_price: item.price,
       })),
-      payment_method: order.paymentMethod === "COD" ? "COD" : "Prepaid",
-      length: packetDimensions.length,
-      breadth: packetDimensions.breadth,
-      height: packetDimensions.height,
-      weight: packetDimensions.weight,
+      payment_method: subOrder.paymentMethod === "COD" ? "COD" : "Prepaid",
+      sub_total: subOrder.totalAmount,
+      length: parseFloat(packetDimensions.length), // Convert to number
+      breadth: parseFloat(packetDimensions.breath),
+      height: parseFloat(packetDimensions.height),
+      weight: parseFloat(packetDimensions.weight) / 1000,
     };
-
-    const { data: shipmentData } = await axios.post(
-      "https://apiv2.shiprocket.in/v1/external/orders/create/adhoc",
-      shipmentRequest,
-      {
-        headers: { Authorization: `Bearer ${seller.authToken}` },
+    try {
+      const { data: shipmentData } = await axios.post(
+        "https://apiv2.shiprocket.in/v1/external/orders/create/adhoc",
+        shipmentRequest,
+        {
+          headers: {
+            Authorization: `Bearer ${seller.shipRocketToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      console.log(shipmentData, "data of the shiprocket  ");
+      if (!shipmentData) {
+        throw new Error("Failed to create delivery with Shiprocket.");
       }
-    );
 
-    if (!shipmentData) {
-      throw new Error("Failed to create delivery with Shiprocket.");
+      // 6. Save Delivery Details to Database
+      // await prisma.delivery.create({
+      //   data: {
+      //     orderItemId: subOrder.orderItems[0].id, // Assuming delivery is tracked by first orderItem
+      //     sellerId: seller.id,
+      //     deliveryService: "Shiprocket",
+      //     trackingId: shipmentData.tracking_id,
+      //     deliveryStatus: "PENDING",
+      //     estimatedDelivery: shipmentData.estimated_delivery_date || null,
+      //   },
+      // });
+
+      return res.status(201).json({
+        success: true,
+        message: "Delivery created successfully",
+        // trackingId: shipmentData.tracking_id,
+        // labelUrl: labelResponse.data.label_url,
+      });
+
+      // console.log(shipmentData.data, "data of the peickjslkdfjskldfjlksdjf ");
+    } catch (err) {
+      console.error("Shiprocket API Error:", err.response?.data || err.message);
+      return res.status(500).json({
+        success: false,
+        message: "Shiprocket API error",
+        error: err.response?.data,
+      });
     }
 
-    // 3. Fetch Label
-    const labelResponse = await axios.get(
-      `https://apiv2.shiprocket.in/v1/external/courier/generate/label?shipment_id=${shipmentData.shipment_id}`,
-      {
-        headers: { Authorization: `Bearer ${seller.authToken}` },
-      }
-    );
+    // 5. Generate Shipping Label
+    // const labelResponse = await axios.get(
+    //   `https://apiv2.shiprocket.in/v1/external/courier/generate/label?shipment_id=${shipmentData.shipment_id}`,
+    //   {
+    //     headers: { Authorization: `Bearer ${seller.shipRocketToken}` },
+    //   }
+    // );
 
-    if (!labelResponse.data.label_url) {
-      throw new Error("Failed to generate label for the shipment.");
-    }
-
-    // 4. Save Delivery Details in Database
-    await prisma.delivery.create({
-      data: {
-        orderId: order.id,
-        sellerId: seller.id,
-        deliveryService: "Shiprocket",
-        trackingId: shipmentData.tracking_id,
-        deliveryStatus: "SHIPPED",
-        pickupLocation,
-        packetDimensions: JSON.stringify(packetDimensions),
-        labelUrl: labelResponse.data.label_url, // Save the label URL
-      },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Delivery created successfully.",
-      trackingId: shipmentData.tracking_id,
-      labelUrl: labelResponse.data.label_url, // Return label for frontend use
-    });
+    // if (!labelResponse.data.label_url) {
+    //   throw new Error("Failed to generate label for the shipment.");
+    // }
   } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ success: false, error: error.message });
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create delivery",
+      error: error.message,
+    });
+  }
+};
+
+// fetch picup location of the seller according to shipRocket
+export const getPickupLocation = async (req, res) => {
+  try {
+    const seller = await prisma.seller.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!seller || !seller.shipRocketToken) {
+      return res.status(404).json({
+        success: false,
+        message: "Seller not found or seller is not authenticate to shipRocket",
+      });
+    }
+
+    const { data: pickupLocations } = await axios.get(
+      "https://apiv2.shiprocket.in/v1/external/settings/company/pickup",
+      {
+        headers: { Authorization: `Bearer ${seller.shipRocketToken}` },
+      }
+    );
+    if (!pickupLocations) {
+      return res.status(400).json({
+        success: false,
+        message: "Pickup location not found in Shiprocket account.",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Pickup location of seller according to shipRocket",
+      data: pickupLocations.data.shipping_address,
+    });
+  } catch (err) {
+    console.error("Shiprocket API Error:", err.response?.data || err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Shiprocket API error in getting the pickup location",
+      error: err.response?.data,
+    });
   }
 };
