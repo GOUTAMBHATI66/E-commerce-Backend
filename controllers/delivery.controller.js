@@ -75,7 +75,9 @@ export const createDelivery = async (req, res) => {
 
     const shippingAddress = subOrder.parentOrder.shippingAddress;
     const shipmentRequest = {
-      order_id: subOrder.id,
+      order_id: `${seller.name.slice(0, 2).toUpperCase()}-${
+        subOrder.id
+      }-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`,
       order_date: new Date().toISOString(),
       pickup_location: pickupLocation || "Primary",
       billing_address: shippingAddress.street,
