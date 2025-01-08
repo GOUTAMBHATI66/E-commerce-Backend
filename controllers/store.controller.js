@@ -279,10 +279,13 @@ export const getFilterProducts = async (req, res) => {
       color,
       min_price,
       max_price,
+      discountedProducts,
+      newArrivals,
       page = 1,
       limit = 10,
     } = req.query;
     // Construct the filters object
+
     let filters = {};
     filters.isDeleted = false;
     filters.isPublished = true;
@@ -297,6 +300,18 @@ export const getFilterProducts = async (req, res) => {
       filters.price = {
         ...(min_price && { gte: parseFloat(min_price) }),
         ...(max_price && { lte: parseFloat(max_price) }),
+      };
+    }
+    if (newArrivals) {
+      filters.createdAt = {
+        ...(newArrivals && {
+          gte: new Date(new Date().setDate(new Date().getDate() - 30)),
+        }),
+      };
+    }
+    if (discountedProducts) {
+      filters.discountPercent = {
+        not: null,
       };
     }
 
@@ -323,15 +338,44 @@ export const getFilterProducts = async (req, res) => {
       where: whereCondition,
       skip: (page - 1) * limit,
       take: parseInt(limit),
-      include: {
-        category: {
-          select: {
-            name: true,
-            id: true,
-          },
-        },
+      // select: {
+      //   category: {
+      //     select: {
+      //       name: true,
+      //       id: true,
+      //     },
+      //   },
+      //   variants: {
+      //     select: {
+      //       color: true,
+      //       images: true,
+      //       attributes: {
+      //         select: {
+      //           size: true,
+      //           price: true,
+      //           stock: true,
+      //           id: true,
+      //         },
+      //       },
+      //     },
+      //   },
+      // },
+      select: {
+        price: true,
+        id: true,
+        slug: true,
+        name: true,
+        discountPercent: true,
+        createdAt: true,
+        status: true,
+        totalQuantity: true,
+        isFeatured: true,
+        category: true,
         variants: {
-          include: {
+          select: {
+            color: true,
+            images: true,
+            id: true,
             attributes: {
               select: {
                 size: true,
