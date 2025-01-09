@@ -48,6 +48,9 @@ export const getDiscountendProducts = async (req, res) => {
         discountPercent: "desc",
       },
       take: 4,
+      orderBy: {
+        discountPercent: "desc",
+      },
     });
 
     res.status(200).json({
@@ -189,7 +192,7 @@ export const getFeaturedProducts = async (req, res) => {
           take: 1,
         },
       },
-      take: 6,
+      take: 7,
       orderBy: {
         createdAt: "desc",
       },
@@ -281,6 +284,7 @@ export const getFilterProducts = async (req, res) => {
       max_price,
       discountedProducts,
       newArrivals,
+      search,
       page = 1,
       limit = 10,
     } = req.query;
@@ -315,8 +319,34 @@ export const getFilterProducts = async (req, res) => {
       };
     }
 
+    // to search a product
+    const searchFilter = search
+      ? {
+          isPublished: true,
+          isDeleted: false,
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              category: {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+          ],
+        }
+      : {};
+
     const whereCondition = {
       ...filters,
+
+      ...searchFilter,
       variants: {
         some: {
           AND: [
@@ -416,49 +446,6 @@ export const getFilterProducts = async (req, res) => {
       total: totalProducts,
       pages: Math.ceil(totalProducts / limit),
       hasNextPage: page < Math.ceil(totalProducts / limit),
-    });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch products." });
-  }
-};
-
-// search product by category name and product name
-export const getSearchProduct = async (req, res) => {
-  try {
-    const { search } = req.query;
-    const products = await prisma.product.findMany({
-      where: {
-        OR: [
-          {
-            name: {
-              contains: search,
-              mode: "insensitive",
-            },
-          },
-          {
-            category: {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-          },
-        ],
-      },
-      include: {
-        category: true,
-        variants: {
-          take: 1,
-        },
-      },
-    });
-    res.status(200).json({
-      success: true,
-      message: "Products fetched successfully.",
-      data: products,
     });
   } catch (error) {
     console.error(error);
