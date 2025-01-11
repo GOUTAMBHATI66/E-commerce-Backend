@@ -10,6 +10,7 @@ import cookieparser from "cookie-parser";
 
 import { isSeller, isAuthenticatedAdmin } from "./middlewares/authenticated.js";
 import { razorpayWebhookHandler } from "./controllers/payment.controller.js";
+import { handleShiprocketWebhook } from "./controllers/delivery.controller.js";
 
 dotenv.config();
 const app = express();
@@ -51,6 +52,8 @@ app.use("/api/image", isAuthenticatedAdmin, imagesRoutes);
 app.use("/api/store", storeRoutes);
 // razorpay verification routes for the webhook
 app.post("/verification", razorpayWebhookHandler);
+// shiprocet deliveyr updation routes
+app.post("/shiprocket/webhook", handleShiprocketWebhook);
 
 app.listen(PORT, () => {
   console.log("Backend is running on port " + PORT);

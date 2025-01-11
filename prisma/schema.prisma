@@ -157,6 +157,7 @@ model SubOrder {
   paymentStatus  PaymentStatus  @default(PENDING)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  Delivery       Delivery[]
 
   @@index([parentOrderId])
 }
@@ -173,7 +174,6 @@ model OrderItem {
   price       Float
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-  Delivery    Delivery[]
   subOrderId  String     @db.ObjectId
   SubOrder    SubOrder   @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
 
@@ -195,19 +195,20 @@ model ShippingAddress {
 
 // product delivery model
 model Delivery {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  orderItemId String    @db.ObjectId
-  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  subOrderId String   @db.ObjectId
+  subOrder   SubOrder @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
 
   sellerId String @db.ObjectId
   seller   Seller @relation(fields: [sellerId], references: [id])
 
-  deliveryService   String
-  trackingId        String?
-  deliveryStatus    DeliveryStatus @default(PENDING)
+  deliveryService   String // e.g., "Shiprocket"
+  shipmentId        String // From Shiprocket's `shipment_id`
+  channelOrderId    String // From Shiprocket's `channel_order_id`
+  deliveryStatus    String
   estimatedDelivery DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 // Enum for product status

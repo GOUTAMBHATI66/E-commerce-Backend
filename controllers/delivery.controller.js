@@ -1,6 +1,7 @@
 import axios from "axios";
 import prisma from "../prisma/prisma.js";
 
+// create the order in the shiprocket
 export const createDelivery = async (req, res) => {
   const { id: subOrderId } = req.params;
   const { pickupLocation, packetDimensions } = req.body;
@@ -16,31 +17,6 @@ export const createDelivery = async (req, res) => {
         message: "Seller not found or seller is not authenticate to shipRocket",
       });
     }
-    // const { data: tokenData } = await axios.post(
-    //   "https://apiv2.shiprocket.in/v1/external/auth/login",
-    //   {
-    //     email: seller.shiprocketEmail,
-    //     password: seller.shiprocketPassword,
-    //   },
-    //   {
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //     },
-    //   }
-    // );
-
-    // if (!seller) {
-    //   return res
-    //     .status(404)
-    //     .json({ success: false, message: "Seller not found" });
-    // }
-
-    // if (!tokenData) {
-    //   return res.status(404).json({
-    //     success: false,
-    //     message: "Shiprocket authorization data is invalid",
-    //   });
-    // }
 
     // 2. Fetch SubOrder and Related Data
     const subOrder = await prisma.subOrder.findUnique({
@@ -75,9 +51,12 @@ export const createDelivery = async (req, res) => {
 
     const shippingAddress = subOrder.parentOrder.shippingAddress;
     const shipmentRequest = {
-      order_id: `${seller.name.slice(0, 2).toUpperCase()}-${
-        subOrder.id
-      }-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`,
+      order_id: `${seller.name.slice(0, 2).toUpperCase()}-${subOrder.id}-${
+        new Date().getHours() +
+        new Date().getDate() +
+        new Date().getMinutes() +
+        new Date().getSeconds()
+      }`,
       order_date: new Date().toISOString(),
       pickup_location: pickupLocation || "Primary",
       billing_address: shippingAddress.street,
@@ -114,31 +93,28 @@ export const createDelivery = async (req, res) => {
           },
         }
       );
-      console.log(shipmentData, "data of the shiprocket  ");
       if (!shipmentData) {
         throw new Error("Failed to create delivery with Shiprocket.");
       }
 
       // 6. Save Delivery Details to Database
-      // await prisma.delivery.create({
-      //   data: {
-      //     orderItemId: subOrder.orderItems[0].id, // Assuming delivery is tracked by first orderItem
-      //     sellerId: seller.id,
-      //     deliveryService: "Shiprocket",
-      //     trackingId: shipmentData.tracking_id,
-      //     deliveryStatus: "PENDING",
-      //     estimatedDelivery: shipmentData.estimated_delivery_date || null,
-      //   },
-      // });
+      const delivery = await prisma.delivery.create({
+        data: {
+          subOrderId: subOrder.id,
+          sellerId: seller.id,
+          deliveryService: "Shiprocket",
+          shipmentId: JSON.stringify(shipmentData.shipment_id),
+          channelOrderId: shipmentData.channel_order_id,
+          deliveryStatus: shipmentData.status, // e.g., "NEW"cls
+          estimatedDelivery: null, // Update when Shiprocket provides an estimate
+        },
+      });
 
       return res.status(201).json({
         success: true,
         message: "Delivery created successfully",
-        // trackingId: shipmentData.tracking_id,
-        // labelUrl: labelResponse.data.label_url,
+        delivery,
       });
-
-      // console.log(shipmentData.data, "data of the peickjslkdfjskldfjlksdjf ");
     } catch (err) {
       console.error("Shiprocket API Error:", err.response?.data || err.message);
       return res.status(500).json({
@@ -147,18 +123,6 @@ export const createDelivery = async (req, res) => {
         error: err.response?.data,
       });
     }
-
-    // 5. Generate Shipping Label
-    // const labelResponse = await axios.get(
-    //   `https://apiv2.shiprocket.in/v1/external/courier/generate/label?shipment_id=${shipmentData.shipment_id}`,
-    //   {
-    //     headers: { Authorization: `Bearer ${seller.shipRocketToken}` },
-    //   }
-    // );
-
-    // if (!labelResponse.data.label_url) {
-    //   throw new Error("Failed to generate label for the shipment.");
-    // }
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -207,5 +171,86 @@ export const getPickupLocation = async (req, res) => {
       message: "Shiprocket API error in getting the pickup location",
       error: err.response?.data,
     });
+  }
+};
+
+// webhook for the shiprocket api integration
+export const handleShiprocketWebhook = async (req, res) => {
+  try {
+    // Extract payload from the webhook
+    const { shipment_id, status, channel_order_id, estimated_delivery_date } =
+      req.body;
+
+    // Validate payload
+    if (!shipment_id || !status || !channel_order_id) {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    // Map Shiprocket's status to your DeliveryStatus enum
+    const deliveryStatusMap = {
+      Pending: "PENDING",
+      Shipped: "SHIPPED",
+      "Out for Delivery": "OUT_FOR_DELIVERY",
+      Delivered: "DELIVERED",
+    };
+
+    const mappedStatus = deliveryStatusMap[status];
+    if (!mappedStatus) {
+      return res.status(400).json({ error: `Invalid status: ${status}` });
+    }
+
+    // Update the Delivery record
+    const updatedDelivery = await prisma.delivery.updateMany({
+      where: { shipmentId: shipment_id },
+      data: {
+        deliveryStatus: mappedStatus,
+        estimatedDelivery: estimated_delivery_date
+          ? new Date(estimated_delivery_date)
+          : null,
+      },
+    });
+
+    if (updatedDelivery.count === 0) {
+      return res.status(404).json({ error: "Delivery not found" });
+    }
+
+    // Retrieve the associated SubOrder
+    const delivery = await prisma.delivery.findFirst({
+      where: { shipmentId: shipment_id },
+      include: { subOrder: true },
+    });
+
+    if (!delivery) {
+      return res.status(404).json({ error: "Delivery not found" });
+    }
+
+    // Update SubOrder status
+    await prisma.subOrder.update({
+      where: { id: delivery.subOrderId },
+      data: { deliveryStatus: mappedStatus },
+    });
+
+    // Check if all SubOrders of the Order are delivered
+    const subOrders = await prisma.subOrder.findMany({
+      where: { parentOrderId: delivery.subOrder.parentOrderId },
+    });
+
+    const allDelivered = subOrders.every(
+      (subOrder) => subOrder.deliveryStatus === "DELIVERED"
+    );
+
+    // If all suborders are delivered, update the Order's delivery status
+    if (allDelivered) {
+      await prisma.order.update({
+        where: { id: delivery.subOrder.parentOrderId },
+        data: { deliveryStatus: "DELIVERED" },
+      });
+    }
+
+    // Respond with success
+    res.status(200).json({ message: "Delivery status updated successfully" });
+  } catch (error) {
+    console.error("Error handling Shiprocket webhook:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
