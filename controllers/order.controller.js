@@ -252,6 +252,7 @@ export const getSellerParticularOrder = async (req, res) => {
       // },
       select: {
         id: true,
+        Delivery: true,
         parentOrder: {
           select: {
             user: true,

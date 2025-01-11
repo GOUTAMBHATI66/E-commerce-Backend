@@ -204,6 +204,7 @@ model Delivery {
 
   deliveryService   String // e.g., "Shiprocket"
   shipmentId        String // From Shiprocket's `shipment_id`
+  ship_order_id     String // From Shiprocket's `order id`
   channelOrderId    String // From Shiprocket's `channel_order_id`
   deliveryStatus    String
   estimatedDelivery DateTime?

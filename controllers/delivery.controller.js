@@ -1,5 +1,6 @@
 import axios from "axios";
 import prisma from "../prisma/prisma.js";
+import { join } from "@prisma/client/runtime/library";
 
 // create the order in the shiprocket
 export const createDelivery = async (req, res) => {
@@ -104,6 +105,7 @@ export const createDelivery = async (req, res) => {
           sellerId: seller.id,
           deliveryService: "Shiprocket",
           shipmentId: JSON.stringify(shipmentData.shipment_id),
+          ship_order_id: JSON.stringify(shipmentData.order_id),
           channelOrderId: shipmentData.channel_order_id,
           deliveryStatus: shipmentData.status, // e.g., "NEW"cls
           estimatedDelivery: null, // Update when Shiprocket provides an estimate
@@ -170,6 +172,50 @@ export const getPickupLocation = async (req, res) => {
       success: false,
       message: "Shiprocket API error in getting the pickup location",
       error: err.response?.data,
+    });
+  }
+};
+
+// Delete a delivery and cancel the corresponding Shiprocket order.
+
+export const deleteDelivery = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // 1. Authenticate Seller
+    const seller = await prisma.seller.findUnique({
+      where: { id: req.user.id },
+    });
+    if (!seller || !seller.shipRocketToken) {
+      return res.status(404).json({
+        success: false,
+        message: "Seller not found or seller is not authenticate to shipRocket",
+      });
+    }
+
+    const delivery = await prisma.delivery.findUnique({
+      where: { id },
+    });
+
+    if (!delivery) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Delivery not found." });
+    }
+
+    await prisma.delivery.delete({
+      where: { id },
+    });
+
+    res.status(200).json({
+      message: "Delivery deleted and Shiprocket order canceled successfully.",
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error deleting delivery:", error);
+
+    res.status(500).json({
+      error: "An error occurred while deleting the delivery.",
+      success: false,
     });
   }
 };
