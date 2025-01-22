@@ -404,6 +404,7 @@ export const getFilterProducts = async (req, res) => {
         variants: {
           select: {
             color: true,
+            productId: true,
             images: true,
             id: true,
             attributes: {

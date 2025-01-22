@@ -27,6 +27,7 @@ export const getCartProducts = async (req, res) => {
                 id: true,
                 color: true,
                 images: true,
+                productId: true,
                 attributes: {
                   where: { id: item.attributeId },
                   select: {
