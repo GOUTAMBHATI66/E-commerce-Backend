@@ -6,6 +6,75 @@ dotenv.config();
 
 const razorPayInstance = createRazorpayInstance();
 
+// helper functions
+async function updateStockAndQuantity(
+  attributeId,
+  variantId,
+  productId,
+  quantity
+) {
+  // Find the attribute
+  const attribute = await prisma.attribute.findUnique({
+    where: {
+      id: attributeId,
+    },
+  });
+
+  if (!attribute) {
+    throw new Error("Attribute not found");
+  }
+
+  // Ensure stock doesn't go below 0
+  if (attribute.stock > 0) {
+    const decrementValue = Math.min(attribute.stock, quantity); // Only decrement up to the available stock
+
+    // Update the attribute stock
+    await prisma.attribute.update({
+      where: {
+        id: attributeId,
+      },
+      data: {
+        stock: {
+          decrement: decrementValue,
+        },
+      },
+    });
+
+    // Fetch the product details
+    const product = await prisma.product.findUnique({
+      where: {
+        id: productId,
+      },
+    });
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    // Ensure totalQuantity doesn't go below 0
+    if (product.totalQuantity > 0) {
+      const productDecrementValue = Math.min(
+        product.totalQuantity,
+        decrementValue
+      ); // Use the same decrementValue for consistency
+
+      // Update the product totalQuantity
+      await prisma.product.update({
+        where: {
+          id: productId,
+        },
+        data: {
+          totalQuantity: {
+            decrement: productDecrementValue,
+          },
+        },
+      });
+    }
+  } else {
+    console.log("Stock is already at 0, no further decrements allowed.");
+  }
+}
+
 // creating order
 export const createOrder = async (req, res) => {
   try {
@@ -110,12 +179,6 @@ export const createOrder = async (req, res) => {
     );
     // Calculate total amount
     let totalAmount = 0;
-    // products.forEach(({ product, attribute }) => {
-    //   const itemPrice = attribute.price || product.price;
-    //   totalAmount +=
-    //     itemPrice *
-    //     items.find((item) => item.productId === product.id).quantity;
-    // });
     products.forEach(({ product, attribute }) => {
       const quantity = items.find(
         (item) => item.productId === product.id
@@ -236,6 +299,18 @@ export const createOrder = async (req, res) => {
         },
       },
     });
+    // here updating the quantity of the product which are ordered
+
+    await Promise.all(
+      items.map(async (item) => {
+        updateStockAndQuantity(
+          item.attributeId,
+          item.variantId,
+          item.productId,
+          item.quantity
+        );
+      })
+    );
 
     return res.status(201).json({
       success: true,
