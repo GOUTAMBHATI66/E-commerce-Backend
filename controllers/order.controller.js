@@ -4,7 +4,7 @@ export const updateOrderDeliveryStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, paymentMethod } = req.body;
-    const order = await prisma.order.findUnique({
+    const order = await prisma.subOrder.findUnique({
       where: {
         id: id,
       },
@@ -24,7 +24,7 @@ export const updateOrderDeliveryStatus = async (req, res) => {
       });
     }
 
-    const updatedOrder = await prisma.order.update({
+    const updatedOrder = await prisma.subOrder.update({
       where: {
         id: id,
       },
@@ -34,62 +34,62 @@ export const updateOrderDeliveryStatus = async (req, res) => {
     });
 
     if (status === "DELIVERED") {
-      for (const orderItem of order.orderItems) {
-        const { variantId, quantity, attributeId, productId } = orderItem;
+      // for (const orderItem of order.orderItems) {
+      //   const { variantId, quantity, attributeId, productId } = orderItem;
 
-        const attribute = await prisma.attribute.findUnique({
-          where: {
-            id: attributeId,
-          },
-        });
+      //   const attribute = await prisma.attribute.findUnique({
+      //     where: {
+      //       id: attributeId,
+      //     },
+      //   });
 
-        if (attribute.stock > 0) {
-          const decrementValue = Math.min(attribute.stock, quantity); // Only decrement up to the available stock
+      //   if (attribute.stock > 0) {
+      //     const decrementValue = Math.min(attribute.stock, quantity); // Only decrement up to the available stock
 
-          await prisma.attribute.update({
-            where: {
-              id: attributeId,
-              variantId: variantId,
-            },
-            data: {
-              stock: {
-                decrement: decrementValue,
-              },
-            },
-          });
+      //     await prisma.attribute.update({
+      //       where: {
+      //         id: attributeId,
+      //         variantId: variantId,
+      //       },
+      //       data: {
+      //         stock: {
+      //           decrement: decrementValue,
+      //         },
+      //       },
+      //     });
 
-          const product = await prisma.product.findUnique({
-            where: {
-              id: productId,
-            },
-          });
+      //     const product = await prisma.product.findUnique({
+      //       where: {
+      //         id: productId,
+      //       },
+      //     });
 
-          if (product.totalQuantity > 0) {
-            const productDecrementValue = Math.min(
-              product.totalQuantity,
-              quantity
-            );
+      //     if (product.totalQuantity > 0) {
+      //       const productDecrementValue = Math.min(
+      //         product.totalQuantity,
+      //         quantity
+      //       );
 
-            await prisma.product.update({
-              where: {
-                id: productId,
-              },
-              data: {
-                totalQuantity: {
-                  decrement: productDecrementValue,
-                },
-              },
-            });
-          }
-        } else {
-          console.log(
-            "Attribute stock is already zero; no decrement performed."
-          );
-        }
-      }
+      //       await prisma.product.update({
+      //         where: {
+      //           id: productId,
+      //         },
+      //         data: {
+      //           totalQuantity: {
+      //             decrement: productDecrementValue,
+      //           },
+      //         },
+      //       });
+      //     }
+      //   } else {
+      //     console.log(
+      //       "Attribute stock is already zero; no decrement performed."
+      //     );
+      //   }
+      // }
       // update the payment method of the cash on delivery product to completed
       if (paymentMethod === "COD") {
-        await prisma.order.update({
+        await prisma.subOrder.update({
           where: {
             id: id,
             paymentMethod: "COD",
